@@ -1107,7 +1107,7 @@ export default function AllBidsScreen() {
     else setRefreshing(true);
     setError(null);
     try {
-      const res = await fetch(`${BASE_URL2.replace(/\/$/, "")}/c`, {
+      const res = await fetch(`${BASE_URL2.replace(/\/$/, "")}/getAllBids`, {
         signal: controller.signal,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
