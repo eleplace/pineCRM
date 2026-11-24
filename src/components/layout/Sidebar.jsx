@@ -5,6 +5,7 @@ import {
   Users,
   FileText,
   Receipt,
+  CreditCard,
   BarChart3,
   Sun,
   Moon,
@@ -21,6 +22,7 @@ const menuItems = [
       { name: "Customers", icon: Users, path: "/customersScreen" },
       { name: "All Jobs", icon: FileText, path: "/AllJobs" },
       { name: "All Bids", icon: Receipt, path: "/AllBidsScreen" },
+       { name: "Add Subscription", icon: CreditCard, path: "/add-subscription" },
     ],
   },
   {
@@ -77,7 +79,7 @@ export default function Sidebar() {
             <div className="space-y-[2px]">
               {section.items.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.path;
+                const isActive = pathname === item.path || pathname.startsWith(`${item.path}/`);
 
                 return (
                   <Link

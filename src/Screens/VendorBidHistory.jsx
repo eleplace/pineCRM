@@ -2679,16 +2679,24 @@ function BidDetailPopup({ bid, onClose, colors }) {
     if (activeTab !== "txn" || !bid || txnHistory !== null) return;
     setTxnLoading(true);
     setTxnError(null);
-    fetch(
-      `${TRANSACTION_HISTORY_API}?senderId=${bid.senderId}&receiverId=${bid.receiverId}&bidId=${bid._id}`,
-    )
-      .then((r) => r.json())
-      .then((json) => {
-        setTxnHistory(
-          Array.isArray(json) ? json : (json.transactionHistory ?? []),
-        );
+    const url = `${TRANSACTION_HISTORY_API}?senderId=${bid.senderId}&receiverId=${bid.receiverId}&bidId=${bid._id}`;
+    console.info("[VendorBidHistory] Loading bid transactions", { bidId: bid._id, url });
+    fetch(url)
+      .then(async (r) => {
+        console.info("[VendorBidHistory] Transaction response", { bidId: bid._id, status: r.status, ok: r.ok });
+        const json = await r.json();
+        if (!r.ok) throw new Error(json?.message || `HTTP ${r.status}`);
+        return json;
       })
-      .catch((e) => setTxnError(e.message))
+      .then((json) => {
+        const transactions = Array.isArray(json) ? json : (json.transactionHistory ?? []);
+        console.info("[VendorBidHistory] Transactions loaded", { bidId: bid._id, count: transactions.length });
+        setTxnHistory(transactions);
+      })
+      .catch((e) => {
+        console.error("[VendorBidHistory] Transaction history failed", { bidId: bid._id, error: e });
+        setTxnError(e.message);
+      })
       .finally(() => setTxnLoading(false));
   }, [activeTab, bid?._id]);
 
@@ -2697,6 +2705,7 @@ function BidDetailPopup({ bid, onClose, colors }) {
     if (activeTab !== "chat" || !bid || messages !== null) return;
     setMsgLoading(true);
     setMsgError(null);
+    console.info("[VendorBidHistory] Loading bid chat", { bidId: bid._id, url: MESSAGES_API });
     fetch(MESSAGES_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2707,17 +2716,23 @@ function BidDetailPopup({ bid, onClose, colors }) {
         chatType: "bid",
       }),
     })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
+      .then(async (r) => {
+        const json = await r.json();
+        console.info("[VendorBidHistory] Chat response", { bidId: bid._id, status: r.status, ok: r.ok, isArray: Array.isArray(json) });
+        if (!r.ok) throw new Error(json?.message || `HTTP ${r.status}`);
+        return json;
       })
       .then((json) => {
         // Response is array of {type:"label", label} | {type:"message", ...}
         // Keep all items (labels + messages) for rendering date separators
         const grouped = Array.isArray(json) ? json : [];
+        console.info("[VendorBidHistory] Chat loaded", { bidId: bid._id, itemCount: grouped.length });
         setMessages(grouped);
       })
-      .catch((e) => setMsgError(e.message))
+      .catch((e) => {
+        console.error("[VendorBidHistory] Chat request failed", { bidId: bid._id, error: e });
+        setMsgError(e.message);
+      })
       .finally(() => setMsgLoading(false));
   }, [activeTab, bid?._id]);
 
@@ -3372,13 +3387,19 @@ export default function VendorBidHistory() {
   const [totalEarnings, setTotalEarnings] = useState(0);
 
   useEffect(() => {
-    fetch(`${BID_API}/${userId}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
+    const url = `${BID_API}/${userId}`;
+    console.info("[VendorBidHistory] Loading vendor bid history", { userId, url });
+    fetch(url)
+      .then(async (r) => {
+        console.info("[VendorBidHistory] Bid history response", { userId, status: r.status, ok: r.ok });
+        const json = await r.json();
+        if (!r.ok) throw new Error(json?.message || `HTTP ${r.status}`);
+        return json;
       })
       .then(async (json) => {
+        console.info("[VendorBidHistory] Bid history payload", { userId, success: json?.success, count: json?.data?.length, message: json?.message });
         if (!json.success) {
+          console.error("[VendorBidHistory] API returned unsuccessful response", { userId, message: json.message, payload: json });
           setError(json.message || "No data returned");
           return;
         }
@@ -3389,10 +3410,10 @@ export default function VendorBidHistory() {
           try {
             const senderId = bid.customerId || bid.senderId;
             const receiverId = bid.vendorId || bid.receiverId;
-            const res = await fetch(
-              `${TRANSACTION_HISTORY_API}?senderId=${senderId}&receiverId=${receiverId}&bidId=${bid._id}`,
-            );
+            const txnUrl = `${TRANSACTION_HISTORY_API}?senderId=${senderId}&receiverId=${receiverId}&bidId=${bid._id}`;
+            const res = await fetch(txnUrl);
             const txnJson = await res.json();
+            if (!res.ok) throw new Error(txnJson?.message || `HTTP ${res.status}`);
             const acceptedTxn = txnJson?.transactionHistory?.find(
               (t) => t.activeStatus === "accept",
             );
@@ -3400,12 +3421,15 @@ export default function VendorBidHistory() {
               earnings += Number(acceptedTxn.amount || 0);
             }
           } catch (err) {
-            console.log("Transaction fetch error", err);
+            console.error("[VendorBidHistory] Earnings transaction request failed", { bidId: bid._id, error: err });
           }
         }
         setTotalEarnings(earnings);
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => {
+        console.error("[VendorBidHistory] Bid history request failed", { userId, error: e });
+        setError(e.message);
+      })
       .finally(() => setLoading(false));
   }, [userId]);
 

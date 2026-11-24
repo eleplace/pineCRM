@@ -504,6 +504,17 @@ async function limitConcurrency(tasks, limit = 8) {
   return results;
 }
 
+function getCustomerCreatedAt(item) {
+  const value = item?.partner?.create_date  ?? item?.create_date ;
+  if (!value) return null;
+  const date = new Date(String(value).replace(" ", "T"));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function startOfLocalDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ title, count, growth, icon: Icon, accentColor, loading }) {
   const { colors } = useTheme();
@@ -607,6 +618,9 @@ export default function CustomersScreen() {
   const [jobsLoading, setJobsLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // ── Fetch customers ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -747,20 +761,40 @@ export default function CustomersScreen() {
     return customers
       .filter((item) => {
         const p = item.partner || {};
-        return (
+        const matchesSearch =
           !q ||
           (p.fullname || "").toLowerCase().includes(q) ||
           (p.email || "").toLowerCase().includes(q) ||
           (p.city || "").toLowerCase().includes(q) ||
-          (p.phone_number || "").toLowerCase().includes(q)
-        );
+          (p.phone_number || "").toLowerCase().includes(q);
+        if (!matchesSearch || dateFilter === "all") return matchesSearch;
+
+        const createdAt = getCustomerCreatedAt(item);
+        if (!createdAt) return false;
+        const today = startOfLocalDay(new Date());
+        const createdDay = startOfLocalDay(createdAt);
+        if (dateFilter === "today") return createdDay.getTime() === today.getTime();
+        if (dateFilter === "week") {
+          const weekStart = new Date(today);
+          weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+          return createdDay >= weekStart && createdDay <= today;
+        }
+        if (dateFilter === "month") {
+          return createdAt.getFullYear() === today.getFullYear() && createdAt.getMonth() === today.getMonth();
+        }
+        if (dateFilter === "custom") {
+          const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+          const to = dateTo ? new Date(`${dateTo}T23:59:59.999`) : null;
+          return (!from || createdAt >= from) && (!to || createdAt <= to);
+        }
+        return true;
       })
       .sort((a, b) =>
         (a.partner?.fullname || "")
           .toLowerCase()
           .localeCompare((b.partner?.fullname || "").toLowerCase()),
       );
-  }, [customers, search]);
+  }, [customers, search, dateFilter, dateFrom, dateTo]);
 
   const filterButtons = [
     { key: "all", label: "All" },
@@ -890,12 +924,34 @@ export default function CustomersScreen() {
             ))}
           </div>
 
+          {/* Registration date filters */}
+          <div className="flex flex-wrap items-center gap-2 px-6 py-3" style={{ borderBottom: `1px solid ${colors.borderFaint}` }}>
+            <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.textFaint, fontFamily: "monospace" }}>Joined</span>
+            {[
+              { key: "all", label: "Any time" },
+              { key: "today", label: "Today" },
+              { key: "week", label: "This week" },
+              { key: "month", label: "This month" },
+              { key: "custom", label: "From / to" },
+            ].map((option) => (
+              <button key={option.key} type="button" onClick={() => setDateFilter(option.key)} className="rounded-full px-3 py-1 text-[11px] font-semibold" style={{ background: dateFilter === option.key ? colors.accentNavActive : "transparent", color: dateFilter === option.key ? colors.accentPrimary : colors.textMuted, border: `1px solid ${dateFilter === option.key ? colors.borderHover : colors.borderSubtle}`, fontFamily: "monospace", cursor: "pointer" }}>
+                {option.label}
+              </button>
+            ))}
+            {dateFilter === "custom" && (
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-[10px]" style={{ color: colors.textMuted }}>From <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-lg px-2 py-1 text-xs" style={{ background: colors.inputBg, color: colors.textPrimary, border: `1px solid ${colors.borderInput}` }} /></label>
+                <label className="text-[10px]" style={{ color: colors.textMuted }}>To <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-lg px-2 py-1 text-xs" style={{ background: colors.inputBg, color: colors.textPrimary, border: `1px solid ${colors.borderInput}` }} /></label>
+              </div>
+            )}
+          </div>
+
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr>
-                  {["Customer", "Location", "Phone", "Jobs", "Bids", ""].map(
+                  {["Customer", "Created At", "Location", "Phone", "Jobs", "Bids", ""].map(
                     (h) => (
                       <th
                         key={h}
@@ -917,7 +973,7 @@ export default function CustomersScreen() {
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 6 }).map((_, j) => (
+                      {Array.from({ length: 7 }).map((_, j) => (
                         <td key={j} className="px-6 py-4">
                           <div
                             className="h-6 rounded-lg"
@@ -934,7 +990,7 @@ export default function CustomersScreen() {
                   ))
                 ) : filteredWithFilter.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-16 text-center">
+                    <td colSpan={7} className="py-16 text-center">
                       <p
                         style={{
                           color: colors.textVeryFaint,
@@ -949,6 +1005,14 @@ export default function CustomersScreen() {
                 ) : (
                   filteredWithFilter.map((item, index) => {
                     const p = item.partner || {};
+                    const createdAt = getCustomerCreatedAt(item);
+                    const isNewCustomer = (() => {
+                      if (!createdAt) return false;
+                      const today = startOfLocalDay(new Date());
+                      const cutoff = new Date(today);
+                      cutoff.setDate(today.getDate() - 6);
+                      return createdAt >= cutoff && createdAt <= new Date();
+                    })();
                     return (
                       <tr
                         key={p.user_id || index}
@@ -976,17 +1040,19 @@ export default function CustomersScreen() {
                               >
                                 {p.fullname || "—"}
                               </p>
-                              <p
-                                className="text-xs mt-0.5"
-                                style={{
-                                  color: colors.textMono,
-                                  fontFamily: "monospace",
-                                }}
-                              >
-                                {p.email || "—"}
-                              </p>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                                <p className="text-xs" style={{ color: colors.textMono, fontFamily: "monospace" }}>{p.email || "—"}</p>
+                                {isNewCustomer && <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ background: colors.accentBadgeBg, color: colors.accentPrimary, border: `1px solid ${colors.borderHover}`, fontFamily: "monospace" }}>New</span>}
+                              </div>
                             </div>
                           </div>
+                        </td>
+
+                        {/* Created At */}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-xs" style={{ color: colors.textMono, fontFamily: "monospace" }}>
+                            {createdAt ? createdAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                          </span>
                         </td>
 
                         {/* Location */}

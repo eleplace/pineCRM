@@ -8,6 +8,7 @@ import CustomerDetailsScreen from "./Screens/CustomerDetailsScreen";
 import VendorDetailPage from "./Screens/VendorDetailPage";
 import VendorBidHistory from "./Screens/VendorBidHistory";
 import VendorSubscriptionPage from "./Screens/Vendorsubscriptionpage";
+import AddSubscriptionScreen from "./Screens/AddSubscriptionScreen";
 import CustomerJobsScreen from "./Screens/Customerjobsscreen";
 import JobBidsScreen from "./Screens/Jobbidsscreen";
 import JobsScreen from "./Screens/AllJobs";
@@ -28,6 +29,7 @@ function App() {
               <Route path="/customersScreen" element={<CustomersScreen />} />
               <Route path="/AllJobs" element={<JobsScreen />} />
               <Route path="/AllBidsScreen" element={<AllBidsScreen />} />
+              <Route path="/add-subscription" element={<AddSubscriptionScreen />} />
               <Route path="/analytics" element={<AnalyticsScreen />} />
               <Route
                 path="/customer/:userId"
@@ -39,7 +41,7 @@ function App() {
                 element={<VendorBidHistory />}
               />
               <Route
-                path="/vendor-subscription/:userId"
+                path="/vendor-subscription/:userId?"
                 element={<VendorSubscriptionPage />}
               />
               <Route
