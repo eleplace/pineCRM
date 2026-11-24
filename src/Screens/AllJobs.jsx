@@ -409,7 +409,7 @@ function SummaryBar({ jobs, activeStat, onSelect }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function JobsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -601,27 +601,28 @@ export default function JobsScreen() {
           </div>
 
           {/* Posted date filter */}
-          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 9px", border: `1px solid ${colors.borderInput}`, borderRadius: 10, background: colors.inputBg }}>
-            <Calendar size={13} color={colors.textMuted} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 38, padding: "5px 10px", border: `1px solid ${dateFilter !== "all" ? colors.accentPrimary : colors.borderInput}`, borderRadius: 10, background: colors.inputBg, boxShadow: dateFilter !== "all" ? `0 0 0 2px ${colors.accentPrimary}18` : "none" }}>
+            <Calendar size={14} color={dateFilter !== "all" ? colors.accentPrimary : colors.textMuted} />
+            <span style={{ color: colors.textMuted, fontSize: 11, fontWeight: 650 }}>Posted</span>
             <select
               value={dateFilter}
               onChange={(event) => setDateFilter(event.target.value)}
               aria-label="Filter jobs by posted date"
-              style={{ border: 0, outline: "none", background: "transparent", color: colors.textSecondary, fontSize: 12, cursor: "pointer" }}
+              style={{ minWidth: 105, border: 0, outline: "none", background: "transparent", color: colors.textPrimary, colorScheme: isDark ? "dark" : "light", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
             >
-              <option value="all">All dates</option>
-              <option value="today">Today</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="thisMonth">This month</option>
-              <option value="thisYear">This year</option>
-              <option value="customMonth">Custom month</option>
+              <option value="all" style={{ background: colors.cardBg, color: colors.textPrimary }}>All dates</option>
+              <option value="today" style={{ background: colors.cardBg, color: colors.textPrimary }}>Today</option>
+              <option value="yesterday" style={{ background: colors.cardBg, color: colors.textPrimary }}>Yesterday</option>
+              <option value="thisMonth" style={{ background: colors.cardBg, color: colors.textPrimary }}>This month</option>
+              <option value="thisYear" style={{ background: colors.cardBg, color: colors.textPrimary }}>This year</option>
+              <option value="customMonth" style={{ background: colors.cardBg, color: colors.textPrimary }}>Choose month…</option>
             </select>
             {dateFilter === "customMonth" && <input
               type="month"
               value={customMonth}
               onChange={(event) => setCustomMonth(event.target.value)}
               aria-label="Choose a month"
-              style={{ width: 142, border: `1px solid ${colors.borderInput}`, borderRadius: 7, padding: "5px 7px", background: colors.cardBg, color: colors.textPrimary, fontSize: 11 }}
+              style={{ width: 142, border: `1px solid ${colors.borderInput}`, borderRadius: 8, padding: "6px 8px", background: colors.cardBg, color: colors.textPrimary, colorScheme: isDark ? "dark" : "light", fontSize: 12, cursor: "pointer" }}
             />}
           </div>
 
