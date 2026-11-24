@@ -18,6 +18,36 @@ function fmt(value) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function currentMonthInputValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function matchesDateFilter(value, filter, customMonth) {
+  if (filter === "all") return true;
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+
+  if (filter === "today") {
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+  }
+  if (filter === "yesterday") {
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    return date.getFullYear() === yesterday.getFullYear() && date.getMonth() === yesterday.getMonth() && date.getDate() === yesterday.getDate();
+  }
+  if (filter === "thisMonth") {
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  }
+  if (filter === "thisYear") return date.getFullYear() === now.getFullYear();
+  if (filter === "customMonth") {
+    const [year, month] = (customMonth || "").split("-").map(Number);
+    return Boolean(year && month) && date.getFullYear() === year && date.getMonth() === month - 1;
+  }
+  return true;
+}
+
 function getMoveType(job) {
   const raw = String(job.moveType || job.jobDetails?.goodsType || job.jobDetails?.transportDescription || "").trim();
   const normalized = raw.toLowerCase().replace(/[_-]+/g, " ");
@@ -387,6 +417,8 @@ export default function JobsScreen() {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [activeStat, setActiveStat] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [customMonth, setCustomMonth] = useState(currentMonthInputValue);
 
   const loadJobs = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -443,6 +475,7 @@ export default function JobsScreen() {
     const matchFilter =
       activeFilter === "all" || job.jobDetails?.status === activeFilter;
     const moveType = getMoveType(job);
+    const matchDate = matchesDateFilter(job.createdAt, dateFilter, customMonth);
     const matchStat =
       activeStat === "all" ||
       (activeStat === "inProgress" && job.jobDetails?.status === "In Progress") ||
@@ -451,7 +484,7 @@ export default function JobsScreen() {
       (activeStat === "intercity" && moveType === "Intercity") ||
       (activeStat === "withinCity" && moveType === "Within City") ||
       (activeStat === "withinComplex" && moveType === "Within Complex");
-    return matchSearch && matchFilter && matchStat;
+    return matchSearch && matchFilter && matchStat && matchDate;
   });
 
   const filters = [
@@ -565,6 +598,31 @@ export default function JobsScreen() {
                 fontFamily: "inherit",
               }}
             />
+          </div>
+
+          {/* Posted date filter */}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 9px", border: `1px solid ${colors.borderInput}`, borderRadius: 10, background: colors.inputBg }}>
+            <Calendar size={13} color={colors.textMuted} />
+            <select
+              value={dateFilter}
+              onChange={(event) => setDateFilter(event.target.value)}
+              aria-label="Filter jobs by posted date"
+              style={{ border: 0, outline: "none", background: "transparent", color: colors.textSecondary, fontSize: 12, cursor: "pointer" }}
+            >
+              <option value="all">All dates</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="thisMonth">This month</option>
+              <option value="thisYear">This year</option>
+              <option value="customMonth">Custom month</option>
+            </select>
+            {dateFilter === "customMonth" && <input
+              type="month"
+              value={customMonth}
+              onChange={(event) => setCustomMonth(event.target.value)}
+              aria-label="Choose a month"
+              style={{ width: 142, border: `1px solid ${colors.borderInput}`, borderRadius: 7, padding: "5px 7px", background: colors.cardBg, color: colors.textPrimary, fontSize: 11 }}
+            />}
           </div>
 
           {/* Filter pills */}
