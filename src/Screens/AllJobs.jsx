@@ -461,7 +461,11 @@ export default function JobsScreen() {
     loadJobs();
   }, []);
 
-  const filtered = jobs.filter((job) => {
+  const dateFilteredJobs = jobs.filter((job) =>
+    matchesDateFilter(job.createdAt, dateFilter, customMonth),
+  );
+
+  const filtered = dateFilteredJobs.filter((job) => {
     const q = search.toLowerCase();
     const matchSearch =
       !q ||
@@ -472,10 +476,12 @@ export default function JobsScreen() {
       (job.pickup?.location || "").toLowerCase().includes(q) ||
       (job.drop?.location || "").toLowerCase().includes(q) ||
       (job.name || "").toLowerCase().includes(q);
-    const matchFilter =
-      activeFilter === "all" || job.jobDetails?.status === activeFilter;
     const moveType = getMoveType(job);
-    const matchDate = matchesDateFilter(job.createdAt, dateFilter, customMonth);
+    const matchFilter =
+      activeFilter === "all" ||
+      (activeFilter === "Intercity" && moveType === "Intercity") ||
+      (activeFilter === "Within City" && moveType === "Within City") ||
+      (!["Intercity", "Within City"].includes(activeFilter) && job.jobDetails?.status === activeFilter);
     const matchStat =
       activeStat === "all" ||
       (activeStat === "inProgress" && job.jobDetails?.status === "In Progress") ||
@@ -484,7 +490,7 @@ export default function JobsScreen() {
       (activeStat === "intercity" && moveType === "Intercity") ||
       (activeStat === "withinCity" && moveType === "Within City") ||
       (activeStat === "withinComplex" && moveType === "Within Complex");
-    return matchSearch && matchFilter && matchStat && matchDate;
+    return matchSearch && matchFilter && matchStat;
   });
 
   const filters = [
@@ -495,6 +501,8 @@ export default function JobsScreen() {
       color: colors.accentQuaternary,
     },
     { key: "Job Posted", label: "Job Posted", color: colors.accentSecondary },
+    { key: "Intercity", label: "Intercity", color: colors.accentSecondary },
+    { key: "Within City", label: "Within City", color: colors.accentPrimary },
   ];
 
   return (
@@ -558,7 +566,7 @@ export default function JobsScreen() {
                 marginTop: 2,
               }}
             >
-              Showing {filtered.length} of {jobs.length} jobs
+              Showing {filtered.length} jobs
             </p>
           </div>
         </div>
@@ -630,7 +638,10 @@ export default function JobsScreen() {
           {filters.map(({ key, label, color }) => (
             <button
               key={key}
-              onClick={() => setActiveFilter(key)}
+              onClick={() => {
+                setActiveFilter(key);
+                setActiveStat("all");
+              }}
               style={{
                 padding: "7px 16px",
                 borderRadius: 20,
@@ -648,7 +659,7 @@ export default function JobsScreen() {
                 transition: "all 0.15s",
               }}
             >
-              {label}
+              {key === "all" ? `All (${filtered.length})` : label}
             </button>
           ))}
 
@@ -683,7 +694,7 @@ export default function JobsScreen() {
 
       {/* Stats */}
       {!loading && <SummaryBar
-        jobs={jobs}
+        jobs={filtered}
         activeStat={activeStat}
         onSelect={(key) => setActiveStat((current) => current === key && key !== "all" ? "all" : key)}
       />}
